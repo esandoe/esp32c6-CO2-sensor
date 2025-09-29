@@ -7,7 +7,6 @@
 #include "Arduino.h"
 #include "driver/rtc_io.h"
 #include "rtc.h"
-#include "main.h"
 
 #define CO2_SAMPLING_INTERVAL_SECONDS 900
 #define uS_TO_S_FACTOR 1000000ULL /* Conversion factor for micro seconds to seconds */
@@ -136,6 +135,15 @@ bool initializeCO2Sensor()
     if (error != NO_ERROR)
     {
         printError("stopPeriodicMeasurement", error);
+        return false;
+    }
+
+    // 424ppm is the current average CO2 level in the atmosphere according to
+    // https://www.co2.earth/daily-co2
+    error = sensor.setAutomaticSelfCalibrationTarget(424);
+    if (error != NO_ERROR)
+    {
+        printError("setAutomaticSelfCalibrationTarget", error);
         return false;
     }
 
