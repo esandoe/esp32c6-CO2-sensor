@@ -21,7 +21,7 @@
 #define I2C_SCL 19
 #define BTN_PIN 0
 
-CO2Sensor co2Sensor;
+CO2Sensor co2Sensor(CO2_SAMPLING_INTERVAL_SECONDS);
 Display display;
 PowerManager powerManager(BAT_ADC_PIN, BTN_PIN);
 ZigbeeManager zigbeeManager(CARBON_DIOXIDE_SENSOR_ENDPOINT_NUMBER);
@@ -30,8 +30,6 @@ bool startAndConnectZigbee()
 {
     if (!zigbeeManager.initialize())
     {
-        log_e("Zigbee initialization failed! Rebooting...");
-        ESP.restart();
         return false;
     }
 
@@ -56,9 +54,6 @@ RTC_DATA_ATTR uint64_t prev_measurement_time = 0;
 
 RTC_DATA_ATTR bool displayOn = false;
 
-// Flag to make sure we only initialize the sensor on the very first boot after a power cycle
-RTC_DATA_ATTR bool first_boot = true;
-
 enum class ButtonPress
 {
     NONE,     // No action
@@ -68,10 +63,11 @@ enum class ButtonPress
 
 enum class MenuItem
 {
-    REFRESH = 1,   // Take new measurement and report
-    ZIGBEE_ON = 2, // Start radio and stay awake
-    EXIT = 3,      // Exit menu and go to sleep
-    MENU_COUNT = 4 // Total number of menu items
+    REFRESH = 1,      // Take new measurement and report
+    ZIGBEE_TOGGLE = 2,// Toggle Zigbee reporting on/off
+    ZIGBEE_ON = 3,    // Start radio and stay awake
+    EXIT = 4,         // Exit menu and go to sleep
+    MENU_COUNT = 5    // Total number of menu items
 };
 
 bool measure()
@@ -98,14 +94,6 @@ void initializeHardware()
 
     pinMode(LED_BUILTIN, OUTPUT);
     digitalWrite(LED_BUILTIN, LOW); // Turn on LED to show we are awake
-
-    // Initialize CO2 sensor only on first boot
-    if (first_boot && !co2Sensor.initialize(CO2_SAMPLING_INTERVAL_SECONDS))
-    {
-        log_e("Sensor initialization failed! Rebooting...");
-        ESP.restart();
-    }
-    first_boot = false;
 }
 
 ButtonPress detectButtonPress()
@@ -148,22 +136,46 @@ bool executeMenuItem(MenuItem item)
             prev_measurement_time = powerManager.getCurrentTimeMicros();
             display.showMeasurement(co2, temp, rh);
 
-            startAndConnectZigbee();
-            zigbeeReport();
+            if (startAndConnectZigbee())
+            {
+                zigbeeReport();
+            }
         }
+        break;
+
+    case MenuItem::ZIGBEE_TOGGLE:
+        // Toggle Zigbee reporting on/off
+        zigbeeManager.toggleReporting();
+        display.showMeasurement(co2, temp, rh, 
+            zigbeeManager.isReportingEnabled() ? "Zigbee: ON" : "Zigbee: OFF");
+        delay(2000);
         break;
 
     case MenuItem::ZIGBEE_ON:
         // Start Zigbee and stay awake for communication
-        display.showMeasurement(co2, temp, rh, "Connecting...");
-        startAndConnectZigbee();
-        display.showMeasurement(co2, temp, rh, "Connected!");
-        delay(3000);
-
-        display.showMeasurement(co2, temp, rh, "Press to exit");
-        while (digitalRead(BTN_PIN) == LOW)
+        if (!zigbeeManager.isReportingEnabled())
         {
-            delay(10);
+            display.showMeasurement(co2, temp, rh, "Zigbee disabled!");
+            delay(2000);
+            break;
+        }
+        
+        display.showMeasurement(co2, temp, rh, "Connecting...");
+        if (startAndConnectZigbee())
+        {
+            display.showMeasurement(co2, temp, rh, "Connected!");
+            delay(3000);
+
+            display.showMeasurement(co2, temp, rh, "Press to exit");
+            while (digitalRead(BTN_PIN) == LOW)
+            {
+                delay(10);
+            }
+        }
+        else
+        {
+            display.showMeasurement(co2, temp, rh, "Connection failed!");
+            delay(2000);
         }
         break;
 
@@ -194,12 +206,17 @@ void openMenu()
             display.showMeasurement(co2, temp, rh, "1. Refresh");
             break;
 
+        case MenuItem::ZIGBEE_TOGGLE:
+            display.showMeasurement(co2, temp, rh, 
+                zigbeeManager.isReportingEnabled() ? "2. Zigbee: ON" : "2. Zigbee: OFF");
+            break;
+
         case MenuItem::ZIGBEE_ON:
-            display.showMeasurement(co2, temp, rh, "2. Zigbee");
+            display.showMeasurement(co2, temp, rh, "3. Stay awake");
             break;
 
         case MenuItem::EXIT:
-            display.showMeasurement(co2, temp, rh, "3. Exit");
+            display.showMeasurement(co2, temp, rh, "4. Exit");
             break;
 
         default:
@@ -266,8 +283,10 @@ void handleTimerWakeup()
     if (measure())
     {
         prev_measurement_time = powerManager.getCurrentTimeMicros();
-        startAndConnectZigbee();
-        zigbeeReport();
+        if (startAndConnectZigbee())
+        {
+            zigbeeReport();
+        }
     }
 }
 
@@ -294,8 +313,10 @@ void setup()
         if (measure())
         {
             prev_measurement_time = powerManager.getCurrentTimeMicros();
-            startAndConnectZigbee();
-            zigbeeReport();
+            if (startAndConnectZigbee())
+            {
+                zigbeeReport();
+            }
         }
         break;
     }

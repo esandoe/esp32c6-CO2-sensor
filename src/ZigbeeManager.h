@@ -2,6 +2,7 @@
 #define ZIGBEE_MANAGER_H
 
 #include <Zigbee.h>
+#include <Preferences.h>
 #include "Arduino.h"
 
 class ZigbeeManager {
@@ -16,6 +17,8 @@ private:
     
     bool isInitialized;
     bool isConnected;
+    
+    Preferences preferences;
 
 public:
     ZigbeeManager(uint8_t endpoint = 10, 
@@ -41,6 +44,11 @@ public:
     void setManufacturerAndModel(const String& mfg, const String& mdl);
     void setCO2Range(uint16_t minValue, uint16_t maxValue);
     void setKeepAlive(uint32_t keepAliveMs);
+    
+    // Settings management
+    bool isReportingEnabled();
+    void setReportingEnabled(bool enabled);
+    void toggleReporting();
     
     // Utility
     void restart();

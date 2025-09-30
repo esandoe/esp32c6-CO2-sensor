@@ -14,6 +14,11 @@ ZigbeeManager::~ZigbeeManager() {
 }
 
 bool ZigbeeManager::initialize() {
+    if (!isReportingEnabled()) {
+        log_i("Zigbee reporting is disabled, skipping initialization");
+        return false;
+    }
+    
     if (isInitialized) {
         log_i("Zigbee already initialized");
         return true;
@@ -138,6 +143,24 @@ void ZigbeeManager::setCO2Range(uint16_t minValue, uint16_t maxValue) {
 
 void ZigbeeManager::setKeepAlive(uint32_t keepAliveMs) {
     keepAliveTime = keepAliveMs;
+}
+
+bool ZigbeeManager::isReportingEnabled() {
+    preferences.begin("zigbee", true); // true = read-only mode
+    bool enabled = preferences.getBool("enabled", true); // default to true
+    preferences.end();
+    return enabled;
+}
+
+void ZigbeeManager::setReportingEnabled(bool enabled) {
+    preferences.begin("zigbee", false); // false = read/write mode
+    preferences.putBool("enabled", enabled);
+    preferences.end();
+    log_i("Saved Zigbee reporting setting: %s", enabled ? "enabled" : "disabled");
+}
+
+void ZigbeeManager::toggleReporting() {
+    setReportingEnabled(!isReportingEnabled());
 }
 
 void ZigbeeManager::restart() {
