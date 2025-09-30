@@ -9,7 +9,7 @@ void Display::begin()
   u8g2.beginSimple();
 }
 
-void Display::showMeasurement(uint16_t co2, float temp, float rh, String message)
+void Display::showMeasurement(uint16_t co2, float temp, float rh, String message = "")
 {
   u8g2.firstPage();
   do
@@ -58,7 +58,6 @@ void Display::showMeasurement(uint16_t co2, float temp, float rh, String message
 
 void Display::turnOn()
 {
-  // u8g2.refreshDisplay();
   u8g2.setPowerSave(0);
 }
 

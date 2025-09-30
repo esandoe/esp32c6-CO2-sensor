@@ -217,14 +217,14 @@ void openMenu()
         }
         else if (btnPress == ButtonPress::NAVIGATE)
         {
-            currentMenuItem++;
+            item = static_cast<MenuItem>(++currentMenuItem);
 
-            if (currentMenuItem >= static_cast<uint8_t>(MenuItem::MENU_COUNT))
+            if (item >= MenuItem::MENU_COUNT)
             {
+                item = MenuItem::REFRESH;
                 currentMenuItem = 1;
             }
 
-            item = static_cast<MenuItem>(currentMenuItem);
         }
         else
         {
