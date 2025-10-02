@@ -63,11 +63,11 @@ enum class ButtonPress
 
 enum class MenuItem
 {
-    REFRESH = 1,      // Take new measurement and report
-    ZIGBEE_TOGGLE = 2,// Toggle Zigbee reporting on/off
-    ZIGBEE_ON = 3,    // Start radio and stay awake
-    EXIT = 4,         // Exit menu and go to sleep
-    MENU_COUNT = 5    // Total number of menu items
+    REFRESH = 1,       // Take new measurement and report
+    ZIGBEE_TOGGLE = 2, // Toggle Zigbee reporting on/off
+    ZIGBEE_ON = 3,     // Start radio and stay awake
+    EXIT = 4,          // Exit menu and go to sleep
+    MENU_COUNT = 5     // Total number of menu items
 };
 
 bool measure()
@@ -141,13 +141,13 @@ bool executeMenuItem(MenuItem item)
                 zigbeeReport();
             }
         }
-        break;
+        return true;
 
     case MenuItem::ZIGBEE_TOGGLE:
         // Toggle Zigbee reporting on/off
         zigbeeManager.toggleReporting();
-        display.showMeasurement(co2, temp, rh, 
-            zigbeeManager.isReportingEnabled() ? "Zigbee: ON" : "Zigbee: OFF");
+        display.showMeasurement(co2, temp, rh,
+                                zigbeeManager.isReportingEnabled() ? "Zigbee: ON" : "Zigbee: OFF");
         delay(2000);
         break;
 
@@ -159,7 +159,7 @@ bool executeMenuItem(MenuItem item)
             delay(2000);
             break;
         }
-        
+
         display.showMeasurement(co2, temp, rh, "Connecting...");
         if (startAndConnectZigbee())
         {
@@ -207,8 +207,8 @@ void openMenu()
             break;
 
         case MenuItem::ZIGBEE_TOGGLE:
-            display.showMeasurement(co2, temp, rh, 
-                zigbeeManager.isReportingEnabled() ? "2. Zigbee: ON" : "2. Zigbee: OFF");
+            auto zigbeeStatus = zigbeeManager.isReportingEnabled() ? "2. Zigbee: ON" : "2. Zigbee: OFF";
+            display.showMeasurement(co2, temp, rh, zigbeeStatus);
             break;
 
         case MenuItem::ZIGBEE_ON:
@@ -241,7 +241,6 @@ void openMenu()
                 item = MenuItem::REFRESH;
                 currentMenuItem = 1;
             }
-
         }
         else
         {
@@ -263,7 +262,7 @@ void handleButtonWakeup()
     {
         displayOn = true;
     }
-    
+
     display.showMeasurement(co2, temp, rh);
     powerManager.goToSleep(DISPLAY_TIMEOUT_SECONDS);
 }
