@@ -12,8 +12,10 @@ PowerManager::PowerManager(uint8_t batPin, uint8_t btnPin, float dividerRatio,
 uint8_t PowerManager::readBatteryPercentage()
 {
   float voltage = readBatteryVoltage();
-  float percentage = map(voltage, minVoltage, maxVoltage, 0.0f, 100.0f);
-
+  
+  // linear mapping from voltage range to 0-100%
+  float percentage = ((voltage - minVoltage) / (maxVoltage - minVoltage)) * 100.0f;
+  
   log_i("Battery voltage: %.2f V, Battery percentage: %.1f %%", voltage, percentage);
   return static_cast<uint8_t>(constrain(percentage, 0.0f, 100.0f));
 }

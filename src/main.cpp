@@ -16,7 +16,7 @@
 #define LONG_PRESS_MS 1000 // 1 second = long press to select
 #define DISPLAY_TIMEOUT_SECONDS 10
 
-#define BAT_ADC_PIN A2
+#define BAT_ADC_PIN A1
 #define I2C_SDA 20
 #define I2C_SCL 19
 #define BTN_PIN 0
@@ -63,11 +63,12 @@ enum class ButtonPress
 
 enum class MenuItem
 {
-    REFRESH = 1,       // Take new measurement and report
-    ZIGBEE_TOGGLE = 2, // Toggle Zigbee reporting on/off
-    ZIGBEE_ON = 3,     // Start radio and stay awake
-    EXIT = 4,          // Exit menu and go to sleep
-    MENU_COUNT = 5     // Total number of menu items
+    REFRESH = 1,      // Take new measurement and report
+    BATTERY = 2,      // Show battery voltage and percentage
+    ZIGBEE_TOGGLE = 3,// Toggle Zigbee reporting on/off
+    ZIGBEE_ON = 4,    // Start radio and stay awake
+    EXIT = 5,         // Exit menu and go to sleep
+    MENU_COUNT = 6    // Total number of menu items
 };
 
 bool measure()
@@ -143,6 +144,19 @@ bool executeMenuItem(MenuItem item)
         }
         return true;
 
+    case MenuItem::BATTERY:
+        {
+            // Show battery information
+            float voltage = powerManager.readBatteryVoltage();
+            uint8_t percentage = powerManager.readBatteryPercentage();
+            
+            char batteryInfo[32];
+            snprintf(batteryInfo, sizeof(batteryInfo), "%.2fV %d%%", voltage, percentage);
+            display.showMeasurement(co2, temp, rh, batteryInfo);
+            delay(3000);
+        }
+        break;
+
     case MenuItem::ZIGBEE_TOGGLE:
         // Toggle Zigbee reporting on/off
         zigbeeManager.toggleReporting();
@@ -206,19 +220,23 @@ void openMenu()
             display.showMeasurement(co2, temp, rh, "1. Refresh");
             break;
 
+        case MenuItem::BATTERY:
+            display.showMeasurement(co2, temp, rh, "2. Battery");
+            break;
+
         case MenuItem::ZIGBEE_TOGGLE:
         {
-            String zigbeeStatus = zigbeeManager.isReportingEnabled() ? "2. Zigbee: ON" : "2. Zigbee: OFF";
+            String zigbeeStatus = zigbeeManager.isReportingEnabled() ? "3. Zigbee: ON" : "3. Zigbee: OFF";
             display.showMeasurement(co2, temp, rh, zigbeeStatus);
             break;
         }
 
         case MenuItem::ZIGBEE_ON:
-            display.showMeasurement(co2, temp, rh, "3. Stay awake");
+            display.showMeasurement(co2, temp, rh, "4. Stay awake");
             break;
 
         case MenuItem::EXIT:
-            display.showMeasurement(co2, temp, rh, "4. Exit");
+            display.showMeasurement(co2, temp, rh, "5. Exit");
             break;
 
         default:
@@ -232,7 +250,6 @@ void openMenu()
             bool exit = executeMenuItem(item);
             if (exit)
                 return;
-            currentMenuItem = 0;
         }
         else if (btnPress == ButtonPress::NAVIGATE)
         {

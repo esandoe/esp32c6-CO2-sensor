@@ -24,7 +24,7 @@ private:
 
 public:
     PowerManager(uint8_t batPin, uint8_t btnPin, float dividerRatio = 2.0f, 
-                 float minVolt = 3.2f, float maxVolt = 4.2f);
+                 float minVolt = 3.55f, float maxVolt = 3.90f);
     
     // Battery management
     uint8_t readBatteryPercentage();
