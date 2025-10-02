@@ -207,9 +207,11 @@ void openMenu()
             break;
 
         case MenuItem::ZIGBEE_TOGGLE:
-            auto zigbeeStatus = zigbeeManager.isReportingEnabled() ? "2. Zigbee: ON" : "2. Zigbee: OFF";
+        {
+            String zigbeeStatus = zigbeeManager.isReportingEnabled() ? "2. Zigbee: ON" : "2. Zigbee: OFF";
             display.showMeasurement(co2, temp, rh, zigbeeStatus);
             break;
+        }
 
         case MenuItem::ZIGBEE_ON:
             display.showMeasurement(co2, temp, rh, "3. Stay awake");
