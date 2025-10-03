@@ -13,6 +13,7 @@ class CO2Sensor {
 private:
     SensirionI2cScd4x sensor;
     uint32_t samplingIntervalSeconds;
+    float temperatureOffset = 0.0f;
     static char errorMessage[64];
     
     bool initialize();
@@ -20,7 +21,7 @@ private:
     void printError(const char *prefix, int16_t err);
 
 public:
-    CO2Sensor(uint32_t samplingIntervalSeconds);
+    CO2Sensor(uint32_t samplingIntervalSeconds, float temperatureOffset = 0.0f);
     
     bool measure(uint16_t &co2, float &temp, float &rh);
 };

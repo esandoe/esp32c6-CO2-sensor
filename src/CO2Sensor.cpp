@@ -6,8 +6,8 @@
 
 char CO2Sensor::errorMessage[64];
 
-CO2Sensor::CO2Sensor(uint32_t samplingIntervalSeconds)
-    : samplingIntervalSeconds(samplingIntervalSeconds)
+CO2Sensor::CO2Sensor(uint32_t samplingIntervalSeconds, float temperatureOffset)
+    : samplingIntervalSeconds(samplingIntervalSeconds), temperatureOffset(temperatureOffset)
 {
 }
 
@@ -19,8 +19,7 @@ void CO2Sensor::printError(const char *prefix, int16_t err)
 
 bool CO2Sensor::initialize()
 {
-    log_i("Initializing Sensirion SCD41...");
-
+    log_i("Configuring I2C for CO2 sensor...");
     sensor.begin(Wire, SCD41_I2C_ADDR_62);
     delay(100);
 
@@ -29,11 +28,14 @@ bool CO2Sensor::initialize()
         return true;
     }
 
+    log_i("Checking existing sensor configuration...");
     if (checkConfiguration())
     {
         CO2SensorInitialized = true;
         return CO2SensorInitialized;
     }
+
+    log_i("Initializing Sensirion SCD41...");
 
     int16_t error = sensor.wakeUp();
     if (error != NO_ERROR)
@@ -94,6 +96,13 @@ bool CO2Sensor::initialize()
         return false;
     }
 
+    error = sensor.setTemperatureOffset(temperatureOffset);
+    if (error != NO_ERROR)
+    {
+        printError("setTemperatureOffset", error);
+        return false;
+    }
+
     log_i("Sensiron SCD41 initialized with ASC.");
 
     CO2SensorInitialized = true;
@@ -118,6 +127,7 @@ bool CO2Sensor::checkConfiguration()
         log_d("Failed to read ASC status: error %d", error);
         return false;
     }
+    log_d("Automatic self-calibration enabled: %d", ascEnabled);
 
     if (ascEnabled == 0)
     {
@@ -133,6 +143,7 @@ bool CO2Sensor::checkConfiguration()
         log_d("Failed to read ASC target: error %d", error);
         return false;
     }
+    log_d("Automatic self-calibration target: %d ppm", target);
 
     if (target != 424)
     {
@@ -152,6 +163,7 @@ bool CO2Sensor::checkConfiguration()
         log_d("Failed to read ASC initial period: error %d", error);
         return false;
     }
+    log_d("Automatic self-calibration initial period: %d", currentInitialPeriod);
 
     if (currentInitialPeriod != expectedInitialPeriod)
     {
@@ -167,10 +179,27 @@ bool CO2Sensor::checkConfiguration()
         log_d("Failed to read ASC standard period: error %d", error);
         return false;
     }
+    log_d("Automatic self-calibration standard period: %d", currentStandardPeriod);
 
     if (currentStandardPeriod != expectedStandardPeriod)
     {
         log_d("ASC standard period mismatch: current=%d, expected=%d", currentStandardPeriod, expectedStandardPeriod);
+        return false;
+    }
+
+    // Check if temperature offset is set correctly
+    float currentTempOffset;
+    error = sensor.getTemperatureOffset(currentTempOffset);
+    if (error != NO_ERROR)
+    {
+        log_d("Failed to read temperature offset: error %d", error);
+        return false;
+    }
+    log_d("Current temperature offset: %.2f C", currentTempOffset);
+    
+    if (fabs(currentTempOffset - temperatureOffset) > 0.01f)
+    {
+        log_d("Temperature offset mismatch: current=%.2f, expected=%.2f", currentTempOffset, temperatureOffset);
         return false;
     }
 
