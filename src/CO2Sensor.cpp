@@ -37,19 +37,7 @@ bool CO2Sensor::initialize()
 
     log_i("Initializing Sensirion SCD41...");
 
-    int16_t error = sensor.wakeUp();
-    if (error != NO_ERROR)
-    {
-        printError("wakeUp", error);
-        return false;
-    }
-
-    error = sensor.stopPeriodicMeasurement();
-    if (error != NO_ERROR)
-    {
-        printError("stopPeriodicMeasurement", error);
-        return false;
-    }
+    int16_t error = NO_ERROR;
 
     // 424ppm is the current average CO2 level in the atmosphere according to
     // https://www.co2.earth/daily-co2
@@ -111,13 +99,7 @@ bool CO2Sensor::initialize()
 
 bool CO2Sensor::checkConfiguration()
 {
-    // Try to wake up the sensor and check if it responds
-    int16_t error = sensor.wakeUp();
-    if (error != NO_ERROR)
-    {
-        log_d("Sensor not responding to wakeUp: error %d", error);
-        return false;
-    }
+    int16_t error = NO_ERROR;
 
     // Check if automatic self-calibration is enabled
     uint16_t ascEnabled;
