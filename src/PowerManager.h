@@ -8,7 +8,8 @@
 enum class WakeupReason {
     POWER_ON,
     BUTTON_PRESS,
-    TIMER,
+    MEASURE_TIMER,
+    DISPLAY_TIMEOUT,
     OTHER
 };
 
@@ -33,7 +34,7 @@ public:
     // Sleep management
     void goToSleep(uint64_t wakeupTimeSeconds);
     void goToSleepUntil(uint64_t nextWakeupMicros);
-    WakeupReason getWakeupReason();
+    WakeupReason getWakeupReason(bool displayOn);
     
     // Timing utilities
     uint64_t getCurrentTimeMicros();

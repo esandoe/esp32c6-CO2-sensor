@@ -55,7 +55,7 @@ void PowerManager::goToSleepUntil(uint64_t nextWakeupMicros)
   esp_deep_sleep_start();
 }
 
-WakeupReason PowerManager::getWakeupReason()
+WakeupReason PowerManager::getWakeupReason(bool displayOn)
 {
   esp_sleep_wakeup_cause_t cause = esp_sleep_get_wakeup_cause();
 
@@ -64,7 +64,10 @@ WakeupReason PowerManager::getWakeupReason()
   case ESP_SLEEP_WAKEUP_EXT1:
     return WakeupReason::BUTTON_PRESS;
   case ESP_SLEEP_WAKEUP_TIMER:
-    return WakeupReason::TIMER;
+    if (displayOn)
+      return WakeupReason::DISPLAY_TIMEOUT;
+    else
+      return WakeupReason::MEASURE_TIMER;
   case ESP_SLEEP_WAKEUP_UNDEFINED:
     return WakeupReason::POWER_ON;
   default:
