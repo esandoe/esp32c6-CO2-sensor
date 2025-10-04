@@ -299,10 +299,9 @@ void handleButtonWakeup()
 void setup()
 {
     initializeHardware();
-
-    WakeupReason wakeup_reason = powerManager.getWakeupReason(displayOn);
-
+    
 #if !HEADLESS_MODE
+    WakeupReason wakeup_reason = powerManager.getWakeupReason(displayOn);
     if (wakeup_reason == WakeupReason::BUTTON_PRESS)
         handleButtonWakeup();
 
@@ -313,7 +312,9 @@ void setup()
         display.turnOff();
         displayOn = false;
     }
-#endif // HEADLESS_MODE
+#else // HEADLESS_MODE
+    WakeupReason wakeup_reason = powerManager.getWakeupReason(false);
+#endif // !HEADLESS_MODE
 
     // Normal measurement on power on or timer wakeup
     if (wakeup_reason == WakeupReason::POWER_ON || wakeup_reason == WakeupReason::MEASURE_TIMER)
