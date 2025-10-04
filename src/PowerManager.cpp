@@ -2,20 +2,23 @@
 #include "rtc.h"
 #include <algorithm>
 
-PowerManager::PowerManager(uint8_t batPin, uint8_t btnPin, float dividerRatio,
-                           float minVolt, float maxVolt)
-    : batteryPin(batPin), buttonPin(btnPin), voltageDividerRatio(dividerRatio),
-      minVoltage(minVolt), maxVoltage(maxVolt)
+PowerManager::PowerManager(uint8_t batPin) : PowerManager(batPin, 0)
+{
+}
+
+PowerManager::PowerManager(uint8_t batPin, uint8_t btnPin)
+    : batteryPin(batPin), buttonPin(btnPin), voltageDividerRatio(2.0f),
+      minVoltage(3.55f), maxVoltage(3.90f)
 {
 }
 
 uint8_t PowerManager::readBatteryPercentage()
 {
   float voltage = readBatteryVoltage();
-  
+
   // linear mapping from voltage range to 0-100%
   float percentage = ((voltage - minVoltage) / (maxVoltage - minVoltage)) * 100.0f;
-  
+
   log_i("Battery voltage: %.2f V, Battery percentage: %.1f %%", voltage, percentage);
   return static_cast<uint8_t>(constrain(percentage, 0.0f, 100.0f));
 }
@@ -91,6 +94,9 @@ uint64_t PowerManager::calculateNextWakeup(uint64_t intervalSeconds, uint64_t la
 
 void PowerManager::enableButtonWakeup()
 {
+#if HEADLESS_MODE
+  return; // Do not enable button wakeup in headless mode
+#endif
   uint64_t button_pin_mask = 1ULL << buttonPin;
   esp_sleep_enable_ext1_wakeup_io(button_pin_mask, ESP_EXT1_WAKEUP_ANY_HIGH);
 }

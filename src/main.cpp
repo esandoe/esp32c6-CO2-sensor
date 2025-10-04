@@ -1,30 +1,69 @@
 #include <Wire.h>
 #include <esp_sleep.h>
 #include <Zigbee.h>
-#include "esp_pm.h"
 #include "Arduino.h"
-#include "driver/rtc_io.h"
 #include "rtc.h"
 #include "CO2Sensor.h"
-#include "Display.h"
 #include "PowerManager.h"
 #include "ZigbeeManager.h"
+
+#ifndef HEADLESS_MODE
+#define HEADLESS_MODE 0
+#endif
+
+#if !HEADLESS_MODE
+#include "Display.h"
+Display display;
+
+RTC_DATA_ATTR bool displayOn = false;
+
+#define LONG_PRESS_MS 1000 // 1 second = long press to select
+#define DISPLAY_TIMEOUT_SECONDS 10
+#define BTN_PIN 0
+#endif // !HEADLESS_MODE
 
 #define CO2_SAMPLING_INTERVAL_SECONDS 900
 #define CARBON_DIOXIDE_SENSOR_ENDPOINT_NUMBER 10
 
-#define LONG_PRESS_MS 1000 // 1 second = long press to select
-#define DISPLAY_TIMEOUT_SECONDS 10
-
 #define BAT_ADC_PIN A1
-#define I2C_SDA 20
-#define I2C_SCL 19
-#define BTN_PIN 0
+#define I2C_SDA 18
+#define I2C_SCL 20
+
+// Store sensor readings in RTC memory to survive deep sleep
+#define NO_VALUE -123456789.0f
+RTC_DATA_ATTR uint16_t co2 = 0;
+RTC_DATA_ATTR float temp = NO_VALUE;
+RTC_DATA_ATTR float rh = NO_VALUE;
+RTC_DATA_ATTR uint8_t batteryPercentage = 0;
+RTC_DATA_ATTR uint64_t prev_measurement_time = 0;
 
 CO2Sensor co2Sensor(CO2_SAMPLING_INTERVAL_SECONDS);
-Display display;
-PowerManager powerManager(BAT_ADC_PIN, BTN_PIN);
 ZigbeeManager zigbeeManager(CARBON_DIOXIDE_SENSOR_ENDPOINT_NUMBER);
+#ifdef BTN_PIN
+PowerManager powerManager(BAT_ADC_PIN, BTN_PIN);
+#else
+PowerManager powerManager(BAT_ADC_PIN);
+#endif
+
+void initializeHardware()
+{
+    Serial.begin(115200);
+    Wire.begin(I2C_SDA, I2C_SCL);
+
+    pinMode(LED_BUILTIN, OUTPUT);
+    digitalWrite(LED_BUILTIN, LOW); // Turn on LED to show we are awake
+}
+
+bool measure()
+{
+    if (!co2Sensor.measure(co2, temp, rh))
+    {
+        return false;
+    }
+    batteryPercentage = powerManager.readBatteryPercentage();
+
+    return true;
+}
 
 bool startAndConnectZigbee()
 {
@@ -43,17 +82,13 @@ bool startAndConnectZigbee()
     return true;
 }
 
-// Store sensor readings in RTC memory to survive deep sleep
-RTC_DATA_ATTR uint16_t co2 = 0;
+void zigbeeReport()
+{
+    zigbeeManager.reportSensorData(co2, batteryPercentage);
+    delay(500);
+}
 
-#define NO_VALUE -123456789.0f
-RTC_DATA_ATTR float temp = NO_VALUE;
-RTC_DATA_ATTR float rh = NO_VALUE;
-RTC_DATA_ATTR uint8_t batteryPercentage = 0;
-RTC_DATA_ATTR uint64_t prev_measurement_time = 0;
-
-RTC_DATA_ATTR bool displayOn = false;
-
+#if !HEADLESS_MODE
 enum class ButtonPress
 {
     NONE,     // No action
@@ -63,39 +98,13 @@ enum class ButtonPress
 
 enum class MenuItem
 {
-    REFRESH = 1,      // Take new measurement and report
-    BATTERY = 2,      // Show battery voltage and percentage
-    ZIGBEE_TOGGLE = 3,// Toggle Zigbee reporting on/off
-    ZIGBEE_ON = 4,    // Start radio and stay awake
-    EXIT = 5,         // Exit menu and go to sleep
-    MENU_COUNT = 6    // Total number of menu items
+    REFRESH = 1,       // Take new measurement and report
+    BATTERY = 2,       // Show battery voltage and percentage
+    ZIGBEE_TOGGLE = 3, // Toggle Zigbee reporting on/off
+    ZIGBEE_ON = 4,     // Start radio and stay awake
+    EXIT = 5,          // Exit menu and go to sleep
+    MENU_COUNT = 6     // Total number of menu items
 };
-
-bool measure()
-{
-    if (!co2Sensor.measure(co2, temp, rh))
-    {
-        return false;
-    }
-    batteryPercentage = powerManager.readBatteryPercentage();
-
-    return true;
-}
-
-void zigbeeReport()
-{
-    zigbeeManager.reportSensorData(co2, batteryPercentage);
-    delay(500);
-}
-
-void initializeHardware()
-{
-    Serial.begin(115200);
-    Wire.begin(I2C_SDA, I2C_SCL);
-
-    pinMode(LED_BUILTIN, OUTPUT);
-    digitalWrite(LED_BUILTIN, LOW); // Turn on LED to show we are awake
-}
 
 ButtonPress detectButtonPress()
 {
@@ -145,17 +154,17 @@ bool executeMenuItem(MenuItem item)
         return true;
 
     case MenuItem::BATTERY:
-        {
-            // Show battery information
-            float voltage = powerManager.readBatteryVoltage();
-            uint8_t percentage = powerManager.readBatteryPercentage();
-            
-            char batteryInfo[32];
-            snprintf(batteryInfo, sizeof(batteryInfo), "%.2fV %d%%", voltage, percentage);
-            display.showMeasurement(co2, temp, rh, batteryInfo);
-            delay(3000);
-        }
-        break;
+    {
+        // Show battery information
+        float voltage = powerManager.readBatteryVoltage();
+        batteryPercentage = powerManager.readBatteryPercentage();
+
+        char batteryInfo[32];
+        snprintf(batteryInfo, sizeof(batteryInfo), "%.2fV %d%%", voltage, batteryPercentage);
+        display.showMeasurement(co2, temp, rh, batteryInfo);
+        delay(3000);
+    }
+    break;
 
     case MenuItem::ZIGBEE_TOGGLE:
         // Toggle Zigbee reporting on/off
@@ -285,28 +294,7 @@ void handleButtonWakeup()
     display.showMeasurement(co2, temp, rh);
     powerManager.goToSleep(DISPLAY_TIMEOUT_SECONDS);
 }
-
-void handleTimerWakeup()
-{
-    if (displayOn)
-    {
-        // Turn off display if it was on
-        display.begin();
-        display.turnOff();
-        displayOn = false;
-        return;
-    }
-
-    // Normal measurement cycle
-    if (measure())
-    {
-        prev_measurement_time = powerManager.getCurrentTimeMicros();
-        if (startAndConnectZigbee())
-        {
-            zigbeeReport();
-        }
-    }
-}
+#endif // !HEADLESS_MODE
 
 void setup()
 {
@@ -314,20 +302,22 @@ void setup()
 
     WakeupReason wakeup_reason = powerManager.getWakeupReason();
 
-    switch (wakeup_reason)
-    {
-    case WakeupReason::BUTTON_PRESS:
+#if !HEADLESS_MODE
+    if (wakeup_reason == WakeupReason::BUTTON_PRESS)
         handleButtonWakeup();
-        break;
 
-    case WakeupReason::TIMER:
-        handleTimerWakeup();
-        break;
+    // If display was on, turn it off to save power
+    else if (displayOn)
+    {
+        display.begin();
+        display.turnOff();
+        displayOn = false;
+    }
+#endif // HEADLESS_MODE
 
-    case WakeupReason::POWER_ON:
-    case WakeupReason::OTHER:
-    default:
-        // Normal measurement on power on or unknown wakeup
+    // Normal measurement on power on or timer wakeup
+    if (wakeup_reason == WakeupReason::POWER_ON || wakeup_reason == WakeupReason::TIMER)
+    {
         if (measure())
         {
             prev_measurement_time = powerManager.getCurrentTimeMicros();
@@ -336,7 +326,6 @@ void setup()
                 zigbeeReport();
             }
         }
-        break;
     }
 
     // Calculate next wakeup and go to sleep

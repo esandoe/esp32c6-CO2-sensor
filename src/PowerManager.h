@@ -23,8 +23,8 @@ private:
     static const uint64_t US_TO_S_FACTOR = 1000000ULL;
 
 public:
-    PowerManager(uint8_t batPin, uint8_t btnPin, float dividerRatio = 2.0f, 
-                 float minVolt = 3.55f, float maxVolt = 3.90f);
+    PowerManager(uint8_t batPin);
+    PowerManager(uint8_t batPin, uint8_t btnPin);
     
     // Battery management
     uint8_t readBatteryPercentage();

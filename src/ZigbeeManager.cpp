@@ -146,6 +146,9 @@ void ZigbeeManager::setKeepAlive(uint32_t keepAliveMs) {
 }
 
 bool ZigbeeManager::isReportingEnabled() {
+#if HEADLESS_MODE
+    return true; // Always enabled in headless mode
+#endif
     preferences.begin("zigbee", true); // true = read-only mode
     bool enabled = preferences.getBool("enabled", true); // default to true
     preferences.end();
