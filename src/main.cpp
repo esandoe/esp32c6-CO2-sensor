@@ -26,8 +26,8 @@ RTC_DATA_ATTR bool displayOn = false;
 #define CARBON_DIOXIDE_SENSOR_ENDPOINT_NUMBER 10
 
 #define BAT_ADC_PIN A1
-#define I2C_SDA 18
-#define I2C_SCL 20
+#define I2C_SDA 20
+#define I2C_SCL 18
 
 // Store sensor readings in RTC memory to survive deep sleep
 #define NO_VALUE -123456789.0f
