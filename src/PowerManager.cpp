@@ -55,6 +55,13 @@ void PowerManager::goToSleepUntil(uint64_t nextWakeupMicros)
   esp_deep_sleep_start();
 }
 
+void PowerManager::lightSleep(uint64_t sleepTimeSeconds)
+{
+  log_i("Light sleep for %llu seconds...", sleepTimeSeconds);
+  esp_sleep_enable_timer_wakeup(sleepTimeSeconds * US_TO_S_FACTOR);
+  esp_light_sleep_start();
+}
+
 WakeupReason PowerManager::getWakeupReason(bool displayOn)
 {
   esp_sleep_wakeup_cause_t cause = esp_sleep_get_wakeup_cause();

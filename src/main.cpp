@@ -56,12 +56,25 @@ void initializeHardware()
 
 bool measure()
 {
-    if (!co2Sensor.measure(co2, temp, rh))
+    if (!co2Sensor.startMeasurement())
     {
         return false;
     }
-    batteryPercentage = powerManager.readBatteryPercentage();
 
+    powerManager.lightSleep(5);
+
+    while (!co2Sensor.isMeasurementReady())
+    {
+        log_d("Measurement not ready yet, waiting...");
+        delay(20);
+    }
+
+    if (!co2Sensor.readMeasurement(co2, temp, rh))
+    {
+        return false;
+    }
+
+    batteryPercentage = powerManager.readBatteryPercentage();
     return true;
 }
 

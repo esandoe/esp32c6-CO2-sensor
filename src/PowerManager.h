@@ -34,6 +34,7 @@ public:
     // Sleep management
     void goToSleep(uint64_t wakeupTimeSeconds);
     void goToSleepUntil(uint64_t nextWakeupMicros);
+    void lightSleep(uint64_t sleepTimeSeconds);
     WakeupReason getWakeupReason(bool displayOn);
     
     // Timing utilities

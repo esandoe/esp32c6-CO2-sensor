@@ -178,7 +178,7 @@ bool CO2Sensor::checkConfiguration()
         return false;
     }
     log_d("Current temperature offset: %.2f C", currentTempOffset);
-    
+
     if (fabs(currentTempOffset - temperatureOffset) > 0.01f)
     {
         log_d("Temperature offset mismatch: current=%.2f, expected=%.2f", currentTempOffset, temperatureOffset);
@@ -207,5 +207,58 @@ bool CO2Sensor::measure(uint16_t &co2, float &temp, float &rh)
 
     log_i("CO2: %d ppm, Temp: %.2f C, RH: %.2f %%", co2, temp, rh);
     log_i("Measurement took %lu ms", millis() - start);
+    return true;
+}
+
+bool CO2Sensor::startMeasurement()
+{
+    if (!initialize())
+    {
+        return false;
+    }
+    
+    uint8_t communication_buffer[9] = {0};
+
+    // Send the measure_single_shot command (0x219D)
+    SensirionI2CTxFrame txFrame = SensirionI2CTxFrame::createWithUInt16Command(0x219d, communication_buffer, 2);
+    int16_t error = SensirionI2CCommunication::sendFrame(SCD41_I2C_ADDR_62, txFrame, Wire);
+
+    if (error != NO_ERROR)
+    {
+        printError("measureSingleShot", error);
+        return false;
+    }
+
+    return true;
+}
+
+bool CO2Sensor::isMeasurementReady()
+{
+    bool dataReady = false;
+    int16_t error = sensor.getDataReadyStatus(dataReady);
+    if (error != NO_ERROR)
+    {
+        printError("getDataReadyStatus", error);
+        return false;
+    }
+    return dataReady;
+}
+
+bool CO2Sensor::readMeasurement(uint16_t &co2, float &temp, float &rh)
+{
+    if (!isMeasurementReady())
+    {
+        log_w("Measurement not ready yet");
+        return false;
+    }
+
+    int16_t error = sensor.readMeasurement(co2, temp, rh);
+    if (error != NO_ERROR)
+    {
+        printError("readMeasurement", error);
+        return false;
+    }
+
+    log_i("CO2: %d ppm, Temp: %.2f C, RH: %.2f %%", co2, temp, rh);
     return true;
 }
