@@ -24,6 +24,7 @@ RTC_DATA_ATTR bool displayOn = false;
 
 #define CO2_SAMPLING_INTERVAL_SECONDS 900
 #define CARBON_DIOXIDE_SENSOR_ENDPOINT_NUMBER 10
+#define REPORTING_DELTA_CO2 40
 
 #define BAT_ADC_PIN A1
 #define I2C_SDA 20
@@ -36,6 +37,8 @@ RTC_DATA_ATTR float temp = NO_VALUE;
 RTC_DATA_ATTR float rh = NO_VALUE;
 RTC_DATA_ATTR uint8_t batteryPercentage = 0;
 RTC_DATA_ATTR uint64_t prev_measurement_time = 0;
+
+RTC_DATA_ATTR uint16_t last_reported_co2 = 0;
 
 CO2Sensor co2Sensor(CO2_SAMPLING_INTERVAL_SECONDS);
 ZigbeeManager zigbeeManager(CARBON_DIOXIDE_SENSOR_ENDPOINT_NUMBER);
@@ -98,7 +101,6 @@ bool startAndConnectZigbee()
 void zigbeeReport()
 {
     zigbeeManager.reportSensorData(co2, batteryPercentage);
-    delay(500);
 }
 
 #if !HEADLESS_MODE
@@ -162,6 +164,7 @@ bool executeMenuItem(MenuItem item)
             if (startAndConnectZigbee())
             {
                 zigbeeReport();
+                last_reported_co2 = co2;
             }
         }
         return true;
@@ -173,7 +176,7 @@ bool executeMenuItem(MenuItem item)
         batteryPercentage = powerManager.readBatteryPercentage();
 
         char batteryInfo[32];
-        snprintf(batteryInfo, sizeof(batteryInfo), "%.2fV %d%%", voltage, batteryPercentage);
+        snprintf(batteryInfo, sizeof(batteryInfo), "%.4fV %d%%", voltage, batteryPercentage);
         display.showMeasurement(co2, temp, rh, batteryInfo);
         delay(3000);
     }
@@ -312,7 +315,7 @@ void handleButtonWakeup()
 void setup()
 {
     initializeHardware();
-    
+
 #if !HEADLESS_MODE
     WakeupReason wakeup_reason = powerManager.getWakeupReason(displayOn);
     if (wakeup_reason == WakeupReason::BUTTON_PRESS)
@@ -325,7 +328,7 @@ void setup()
         display.turnOff();
         displayOn = false;
     }
-#else // HEADLESS_MODE
+#else  // HEADLESS_MODE
     WakeupReason wakeup_reason = powerManager.getWakeupReason(false);
 #endif // !HEADLESS_MODE
 
@@ -335,13 +338,23 @@ void setup()
         if (measure())
         {
             prev_measurement_time = powerManager.getCurrentTimeMicros();
-            if (startAndConnectZigbee())
+            auto abs_diff = abs(co2 - last_reported_co2);
+
+            if (abs_diff < REPORTING_DELTA_CO2)
             {
-                zigbeeReport();
+                log_i("CO2 change (%d ppm) less than reporting delta (%d ppm), skipping report.",
+                      abs_diff, REPORTING_DELTA_CO2);
+            }
+            else
+            {
+                if (startAndConnectZigbee())
+                {
+                    zigbeeReport();
+                    last_reported_co2 = co2;
+                }
             }
         }
     }
-
     // Calculate next wakeup and go to sleep
     uint64_t next_wakeup = powerManager.calculateNextWakeup(CO2_SAMPLING_INTERVAL_SECONDS, prev_measurement_time);
     powerManager.goToSleepUntil(next_wakeup);

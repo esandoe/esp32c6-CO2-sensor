@@ -19,24 +19,29 @@ uint8_t PowerManager::readBatteryPercentage()
   // linear mapping from voltage range to 0-100%
   float percentage = ((voltage - minVoltage) / (maxVoltage - minVoltage)) * 100.0f;
 
-  log_i("Battery voltage: %.2f V, Battery percentage: %.1f %%", voltage, percentage);
+  log_i("Battery voltage: %.4f V, Battery percentage: %.1f %%", voltage, percentage);
   return static_cast<uint8_t>(constrain(percentage, 0.0f, 100.0f));
 }
 
 float PowerManager::readBatteryVoltage()
 {
   pinMode(batteryPin, INPUT);
-  uint32_t totalVoltage = 0;
+  std::vector<uint32_t> voltageReadings;
+  voltageReadings.reserve(31);
 
   // Take multiple samples for better accuracy
-  for (int i = 0; i < 16; i++)
+  for (int i = 0; i < 31; i++)
   {
-    totalVoltage += analogReadMilliVolts(batteryPin);
+    voltageReadings.push_back(analogReadMilliVolts(batteryPin));
   }
 
-  // Calculate average and adjust for voltage divider
-  float averageVoltage = voltageDividerRatio * totalVoltage / 16 / 1000.0f;
-  return averageVoltage;
+  // calculate median
+  std::sort(voltageReadings.begin(), voltageReadings.end());
+  float medianVoltage = static_cast<float>(voltageReadings[voltageReadings.size() / 2]);
+
+  // Adjust for voltage divider
+  medianVoltage = voltageDividerRatio * medianVoltage / 1000.0f;
+  return medianVoltage;
 }
 
 void PowerManager::goToSleep(uint64_t wakeupTimeSeconds)
